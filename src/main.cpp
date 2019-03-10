@@ -63,7 +63,16 @@ int main() {
            * NOTE: Feel free to play around with the throttle and speed.
            *   Maybe use another PID controller to control the speed!
            */
+
+          const auto s_pid_p{0.1};
+          const auto s_pid_d{0.5};
           
+          static double last_cte{cte};
+
+          steer_value = -s_pid_p * cte - s_pid_d * (cte - last_cte);
+
+          last_cte = cte;
+
           // DEBUG
           std::cout << "CTE: " << cte << " Steering Value: " << steer_value 
                     << std::endl;
