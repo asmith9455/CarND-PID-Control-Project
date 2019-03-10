@@ -33,6 +33,22 @@ string hasData(string s)
   return "";
 }
 
+enum class SearchState
+{
+  RIGHT_BOUND_SEARCH,
+  LEFT_BOUND_SEARCH,
+  BETWEEN_BOUNDS,
+  COMPLETE
+};
+
+static const std::map<SearchState, std::string> SEARCH_STATE_TO_STRING
+{
+  {SearchState::RIGHT_BOUND_SEARCH, "RIGHT_BOUND_SEARCH"},
+  {SearchState::LEFT_BOUND_SEARCH, "LEFT_BOUND_SEARCH"},
+  {SearchState::BETWEEN_BOUNDS, "BETWEEN_BOUNDS"},
+  {SearchState::COMPLETE, "COMPLETE"}
+};
+
 int main()
 {
   uWS::Hub h;
@@ -84,9 +100,11 @@ int main()
           static double max_param_right{std::numeric_limits<double>::max()};
           static double max_param_left{-std::numeric_limits<double>::max()};
           static double explore_factor{1.0};
-          static bool first_time{true};
-
-          static bool hit_threshold_on_last_iter{false};
+          static std::vector<double> search_points_between_bounds;
+          static std::vector<double> errors_between_bounds;
+          static int search_between_bounds_counter{0};
+          static SearchState state = SearchState::RIGHT_BOUND_SEARCH;
+          static SearchState prev_state = SearchState::RIGHT_BOUND_SEARCH;
 
           //optimization starting point
           static auto s_pid_p{0.1};
@@ -122,6 +140,7 @@ int main()
             std::cout << "------------------------------------------" << std::endl;
             std::cout << "------------------------------------------" << std::endl;
             std::cout << "finished experiment " << testing_error_history.size() << std::endl;
+            std::cout << "p before: " << s_pid_p << std::endl;
             std::cout << "testing error history: " << std::endl;
             for (const double &error : testing_error_history)
               std::cout << error << ", ";
@@ -130,69 +149,114 @@ int main()
             for (const double &p : parameter_history)
               std::cout << p << ", ";
             std::cout << std::endl;
-            std::cout << "error_increased_on_the_last_iteration: " << error_increased_on_the_last_iteration << std::endl;
-            std::cout << "error_increased_on_the_last_2_iterations: " << error_increased_on_the_last_2_iterations << std::endl;
-            std::cout << "hit_threshold_on_last_iter: " << hit_threshold_on_last_iter << std::endl;
-            std::cout << "max_param_right: " << max_param_right << std::endl;
-            std::cout << "max_param_left: " << max_param_left << std::endl;
 
-            // logic below is based on the assumption that this is a local minimization problem
+            bool complete{false};
 
-            if (error_increased_on_the_last_2_iterations || hit_threshold_on_last_iter)
+            while (!complete)
             {
-              // we have overshot the solution in both directions
-              explore_factor *= -0.9;
-              std::cout << "we have overshot the solution in both directions" << std::endl;
-            }
-            else if (error_increased_on_the_last_iteration)
-            {
-              // we have overshot the solution in the current direction
-              if (explore_direction == 1.0)
+
+              std::cout << "left bound is: " << max_param_left << std::endl;
+              std::cout << "right bound is: " << max_param_right << std::endl;
+
+              std::cout << "processing state: " << SEARCH_STATE_TO_STRING.at(state) << std::endl;
+              if (state == SearchState::RIGHT_BOUND_SEARCH)
               {
-                std::cout << "setting max_param_right to " << s_pid_p << std::endl;
-                max_param_right = s_pid_p;
+                explore_direction = 1.0;
+                if (error_increased_on_the_last_iteration)
+                {
+                  std::cout << "finished search for right bound - reversing search direction" << std::endl;
+                  state = SearchState::LEFT_BOUND_SEARCH;
+                  max_param_right = parameter_history[parameter_history.size() - 2];
+                  complete = false;
+                }
+                else
+                {
+                  std::cout << "accelerating search for right bound" << std::endl;
+                  explore_factor *= 1.1;
+                  s_pid_p = s_pid_p + explore_direction * explore_factor;
+                  complete = true;
+                }
+                prev_state = SearchState::RIGHT_BOUND_SEARCH;
               }
-              else if (explore_direction == -1.0)
+              else if (state == SearchState::LEFT_BOUND_SEARCH)
               {
-                std::cout << "setting max_param_left to " << s_pid_p << std::endl;
-                max_param_left = s_pid_p;
+                explore_direction = -1.0;
+                std::cout << "error_increased_on_the_last_iteration: "<< error_increased_on_the_last_iteration << std::endl;
+                std::cout << "prev_state: "<< SEARCH_STATE_TO_STRING.at(prev_state) << std::endl;
+                if (error_increased_on_the_last_iteration && prev_state == SearchState::LEFT_BOUND_SEARCH)
+                {
+                  std::cout << "finished search for left bound - starting binary search between bounds" << std::endl;
+                  state = SearchState::BETWEEN_BOUNDS;
+                  max_param_left = parameter_history[parameter_history.size() - 2];
+                  complete = false;
+                }
+                else
+                {
+                  std::cout << "accelerating search for left bound" << std::endl;
+                  explore_factor *= 1.1;
+                  s_pid_p = s_pid_p + explore_direction * explore_factor;
+                  complete = true;
+                }
+
+                prev_state = SearchState::LEFT_BOUND_SEARCH;
+              }
+              else if (state == SearchState::BETWEEN_BOUNDS)
+              {
+
+                if (search_points_between_bounds.empty())
+                {
+                  search_points_between_bounds.push_back(max_param_left + 0.00 * (max_param_right - max_param_left));
+                  search_points_between_bounds.push_back(max_param_left + 0.25 * (max_param_right - max_param_left));
+                  search_points_between_bounds.push_back(max_param_left + 0.50 * (max_param_right - max_param_left));
+                  search_points_between_bounds.push_back(max_param_left + 0.75 * (max_param_right - max_param_left));
+                  search_points_between_bounds.push_back(max_param_left + 1.00 * (max_param_right - max_param_left));
+                  for(const auto& search_point : search_points_between_bounds)
+                  {
+                    std::cout << "added search point: " << search_point << std::endl;
+                  }
+                  search_between_bounds_counter = 0;
+                }
+                else
+                {
+                  std::cout << "moving to next point, appending latest error test" << std::endl;
+                  errors_between_bounds.push_back(testing_error_history.back());
+                  ++search_between_bounds_counter;
+                }
+
+                if (search_between_bounds_counter == 5)
+                {
+                  std::cout << "finished testing all points" << std::endl;
+                  //recalculate left and right bounds
+                  //choose the one with the least error - eventually will implement search algo and research again an arbitrary number of times
+                  //can also determine if there is a problem with the model - if so we can adjust how we do the optimization, for example by increasing the error collection duration
+                  const auto it = std::min_element(errors_between_bounds.cbegin(), errors_between_bounds.cend());
+                  s_pid_p = search_points_between_bounds[it - errors_between_bounds.begin()];
+                  search_points_between_bounds.clear();
+                  errors_between_bounds.clear();
+                  search_between_bounds_counter = 0;
+                  state = SearchState::COMPLETE;
+                  complete = false;
+                }
+                else
+                {
+                  std::cout << "setting search point to: " << search_points_between_bounds[search_between_bounds_counter] << std::endl;
+                  s_pid_p = search_points_between_bounds[search_between_bounds_counter];
+                  complete = true;
+                }
+                prev_state = SearchState::BETWEEN_BOUNDS;
+              }
+              else if (state == SearchState::COMPLETE)
+              {
+                complete = true;
+                prev_state = SearchState::COMPLETE;
               }
               else
               {
-                throw std::logic_error("logic error");
+                throw std::logic_error("invalid state");
               }
 
-              explore_direction = -1.0 * explore_direction;
-              std::cout << "we have overshot the solution in the current direction only - let's try the other one" << std::endl;
-            }
-            else
-            {
-              //we should search faster in the current direction
-              explore_factor *= 1.1;
-              std::cout << "we need to search faster in the current direction" << std::endl;
-            }
-
-            const auto change_in_parameter = explore_direction * explore_factor;
-
-            std::cout << "explore_direction: " << explore_direction << std::endl;
-            std::cout << "explore_factor: " << explore_factor << std::endl;
-            std::cout << "change for p: " << change_in_parameter << std::endl;
-            std::cout << "p before: " << s_pid_p << std::endl;
-
-            s_pid_p = s_pid_p + change_in_parameter;
-
-            hit_threshold_on_last_iter = false;
-
-            if (s_pid_p > max_param_right)
-            {
-              s_pid_p = max_param_right;
-              hit_threshold_on_last_iter = true;
-            }
-            
-            if (s_pid_p < max_param_left)
-            {
-              s_pid_p = max_param_left;
-              hit_threshold_on_last_iter = true;
+              std::cout << "explore_direction: " << explore_direction << std::endl;
+              std::cout << "explore_factor: " << explore_factor << std::endl;
             }
 
             std::cout << "p after: " << s_pid_p << std::endl;
