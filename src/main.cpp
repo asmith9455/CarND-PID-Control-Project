@@ -78,63 +78,88 @@ int main()
           static const int experiment_counter_limit{100};
           static double total_error_for_last_cycle{0.0};
           static std::vector<double> testing_error_history{};
+          static std::vector<double> parameter_history{};
           // static std::vector<bool> switch_direction_history{};
           static double explore_direction{1.0};
           static double explore_factor{1.0};
           static bool first_time{true};
 
+          //optimization starting point
           static auto s_pid_p{0.1};
           static const auto s_pid_d{0.5};
           static const auto s_pid_i{0.0};
 
+          //implement local minimization algorithm
           if (experiment_counter >= experiment_counter_limit)
           {
             experiment_counter = 0;
             testing_error_history.push_back(total_error_for_last_cycle);
+            parameter_history.push_back(s_pid_p);
             total_error_for_last_cycle = 0.0;
 
             bool error_increased_on_the_last_iteration{false};
             bool error_increased_on_the_last_2_iterations{false};
 
-            if (switch_direction_history.size() >= 2)
+            if (testing_error_history.size() >= 2)
             {
               const double error_1_back = testing_error_history[testing_error_history.size() - 1];
               const double error_2_back = testing_error_history[testing_error_history.size() - 2];
               error_increased_on_the_last_iteration = error_1_back > error_2_back;
-              
-              if (switch_direction_history.size() >= 3)
+
+              if (testing_error_history.size() >= 3)
               {
-                const double error_3_back = testing_error_history[switch_direction_history.size() - 3];
-                const bool error_increased_on_the_last_2_iterations = error_increased_on_the_last_iteration && error_2_back > error_3_back;
-
-                // const bool switch_1_back = switch_direction_history[switch_direction_history.size() - 1];
-                // const bool switch_2_back = switch_direction_history[switch_direction_history.size() - 2];
-                // const bool switched_last_2_iterations = switch_1_back && switch_2_back;
-
-                // if (!switched_last_2_iterations)
-                // {
-                //   throw std::logic_error("There is a problem with the logic. If we had error increases the last 2 times, we should have switched directions both times.");
-                // }
+                const double error_3_back = testing_error_history[testing_error_history.size() - 3];
+                error_increased_on_the_last_2_iterations = error_increased_on_the_last_iteration && error_2_back > error_3_back;
               }
             }
 
-            if (error_has_increased_in_both_directions)
-            {
-              explore_factor *= 0.9;
-            }
+            std::cout << "\n\n"
+                      << std::endl;
+            std::cout << "------------------------------------------" << std::endl;
+            std::cout << "------------------------------------------" << std::endl;
+            std::cout << "finished experiment " << testing_error_history.size() << std::endl;
+            std::cout << "testing error history: " << std::endl;
+            for (const double &error : testing_error_history)
+              std::cout << error << ", ";
+            std::cout << std::endl;
+            std::cout << "parameter history: " << std::endl;
+            for (const double &p : parameter_history)
+              std::cout << p << ", ";
+            std::cout << std::endl;
+            std::cout << "error_increased_on_the_last_iteration: " << error_increased_on_the_last_iteration << std::endl;
+            std::cout << "error_increased_on_the_last_2_iterations: " << error_increased_on_the_last_2_iterations << std::endl;
 
-            if (error_has_increased)
+            // logic below is based on the assumption that this is a local minimization problem
+
+            if (error_increased_on_the_last_2_iterations)
             {
-              // switch_direction_history.push_back(true);
+              // we have overshot the solution in both directions
+              explore_factor *= -0.9;
+              std::cout << "we have overshot the solution in both directions" << std::endl;
+            }
+            else if (error_increased_on_the_last_iteration)
+            {
+              // we have overshot the solution in the current direction
               explore_direction = -1.0 * explore_direction;
+              std::cout << "we have overshot the solution in the current direction only - let's try the other one" << std::endl;
             }
             else
             {
-              // switch_direction_history.push_back(false);
+              //we should search faster in the current direction
               explore_factor *= 1.1;
+              std::cout << "we need to search faster in the current direction" << std::endl;
             }
 
-            s_pid_p = s_pid_p + explore_direction * explore_factor;
+            const auto change_in_parameter = explore_direction * explore_factor;
+
+            std::cout << "explore_direction: " << explore_direction << std::endl;
+            std::cout << "explore_factor: " << explore_factor << std::endl;
+            std::cout << "change for p: " << change_in_parameter << std::endl;
+            std::cout << "p before: " << s_pid_p << std::endl;
+
+            s_pid_p = s_pid_p + change_in_parameter;
+
+            std::cout << "p after: " << s_pid_p << std::endl;
           }
 
           static double last_cte{cte};
@@ -173,7 +198,7 @@ int main()
           msgJson["steering_angle"] = steer_value;
           msgJson["throttle"] = throttle;
           auto msg = "42[\"steer\"," + msgJson.dump() + "]";
-          std::cout << msg << std::endl;
+          // std::cout << msg << std::endl;
           ws.send(msg.data(), msg.length(), uWS::OpCode::TEXT);
         } // end "telemetry" if
       }
