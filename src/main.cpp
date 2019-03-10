@@ -103,6 +103,8 @@ int main()
           static std::vector<double> search_points_between_bounds;
           static std::vector<double> errors_between_bounds;
           static int search_between_bounds_counter{0};
+          static int number_of_between_bounds_searches{0};
+          static int between_bounds_searches_counter{0};
           static SearchState state = SearchState::RIGHT_BOUND_SEARCH;
           static SearchState prev_state = SearchState::RIGHT_BOUND_SEARCH;
 
@@ -166,7 +168,7 @@ int main()
                 {
                   std::cout << "finished search for right bound - reversing search direction" << std::endl;
                   state = SearchState::LEFT_BOUND_SEARCH;
-                  max_param_right = parameter_history[parameter_history.size() - 2];
+                  max_param_right = parameter_history.back();
                   complete = false;
                 }
                 else
@@ -187,7 +189,7 @@ int main()
                 {
                   std::cout << "finished search for left bound - starting binary search between bounds" << std::endl;
                   state = SearchState::BETWEEN_BOUNDS;
-                  max_param_left = parameter_history[parameter_history.size() - 2];
+                  max_param_left = parameter_history.back();
                   complete = false;
                 }
                 else
@@ -202,6 +204,10 @@ int main()
               }
               else if (state == SearchState::BETWEEN_BOUNDS)
               {
+                if (prev_state == SearchState::LEFT_BOUND_SEARCH)
+                {
+                  between_bounds_searches_counter = 1;
+                }
 
                 if (search_points_between_bounds.empty())
                 {
@@ -226,16 +232,58 @@ int main()
                 if (search_between_bounds_counter == 5)
                 {
                   std::cout << "finished testing all points" << std::endl;
-                  //recalculate left and right bounds
-                  //choose the one with the least error - eventually will implement search algo and research again an arbitrary number of times
-                  //can also determine if there is a problem with the model - if so we can adjust how we do the optimization, for example by increasing the error collection duration
-                  const auto it = std::min_element(errors_between_bounds.cbegin(), errors_between_bounds.cend());
-                  s_pid_p = search_points_between_bounds[it - errors_between_bounds.begin()];
+                  
+                  bool found_increase_coming_from_the_left{false};
+                  bool found_increase_coming_from_the_right{false};
+
+                  for(int i = 0; i < search_points_between_bounds.size() - 1; ++i)
+                  {
+                    if (errors_between_bounds[i+1] > errors_between_bounds[i])
+                    {
+                      found_increase_coming_from_the_left = true;
+                      max_param_left = search_points_between_bounds[std::max(i-1, 0)];
+                      std::cout << errors_between_bounds[++i] << ">" << errors_between_bounds[i] << " so adjusting max_param_left to: " << max_param_left << std::endl;
+                      break;
+                    }
+                  }
+
+                  for(int i = search_points_between_bounds.size() - 1; i >= 1; --i)
+                  {
+                    if (errors_between_bounds[i-1] > errors_between_bounds[i])
+                    {
+                      found_increase_coming_from_the_right = true;
+                      max_param_right = search_points_between_bounds[std::min(i+1, static_cast<int>(search_points_between_bounds.size() - 1))];
+                      std::cout << errors_between_bounds[i-1] << ">" << errors_between_bounds[i] << " so adjusting max_param_right to: " << max_param_right << std::endl;
+                      break;
+                    }
+                  }
+
+                  if(!found_increase_coming_from_the_left)
+                  {
+                    //there must only be one point on the right side of the minimum
+                    std::cout << "found no parameter increase coming from the left - setting to second last point since there must be only one point on the right side of the minimum" << std::endl;
+                    max_param_left = search_points_between_bounds[search_points_between_bounds.size() - 2];
+                  }
+
+                  if(!found_increase_coming_from_the_right)
+                  {
+                    //there must only be one point on the left side of the minimum
+                    std::cout << "found no parameter increase coming from the right - setting to second point since there must be only one point on the left side of the minimum" << std::endl;
+                    max_param_right = search_points_between_bounds[1];
+                  } 
+
+                  complete = false;
+                  ++between_bounds_searches_counter;
+                  if(between_bounds_searches_counter == number_of_between_bounds_searches)
+                  {
+                    const auto it = std::min_element(errors_between_bounds.cbegin(), errors_between_bounds.cend());
+                    s_pid_p = search_points_between_bounds[it - errors_between_bounds.begin()];
+                    state = SearchState::COMPLETE;
+                  }
+
                   search_points_between_bounds.clear();
                   errors_between_bounds.clear();
                   search_between_bounds_counter = 0;
-                  state = SearchState::COMPLETE;
-                  complete = false;
                 }
                 else
                 {
