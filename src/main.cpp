@@ -81,8 +81,12 @@ int main()
           static std::vector<double> parameter_history{};
           // static std::vector<bool> switch_direction_history{};
           static double explore_direction{1.0};
+          static double max_param_right{std::numeric_limits<double>::max()};
+          static double max_param_left{-std::numeric_limits<double>::max()};
           static double explore_factor{1.0};
           static bool first_time{true};
+
+          static bool hit_threshold_on_last_iter{false};
 
           //optimization starting point
           static auto s_pid_p{0.1};
@@ -128,10 +132,13 @@ int main()
             std::cout << std::endl;
             std::cout << "error_increased_on_the_last_iteration: " << error_increased_on_the_last_iteration << std::endl;
             std::cout << "error_increased_on_the_last_2_iterations: " << error_increased_on_the_last_2_iterations << std::endl;
+            std::cout << "hit_threshold_on_last_iter: " << hit_threshold_on_last_iter << std::endl;
+            std::cout << "max_param_right: " << max_param_right << std::endl;
+            std::cout << "max_param_left: " << max_param_left << std::endl;
 
             // logic below is based on the assumption that this is a local minimization problem
 
-            if (error_increased_on_the_last_2_iterations)
+            if (error_increased_on_the_last_2_iterations || hit_threshold_on_last_iter)
             {
               // we have overshot the solution in both directions
               explore_factor *= -0.9;
@@ -140,6 +147,21 @@ int main()
             else if (error_increased_on_the_last_iteration)
             {
               // we have overshot the solution in the current direction
+              if (explore_direction == 1.0)
+              {
+                std::cout << "setting max_param_right to " << s_pid_p << std::endl;
+                max_param_right = s_pid_p;
+              }
+              else if (explore_direction == -1.0)
+              {
+                std::cout << "setting max_param_left to " << s_pid_p << std::endl;
+                max_param_left = s_pid_p;
+              }
+              else
+              {
+                throw std::logic_error("logic error");
+              }
+
               explore_direction = -1.0 * explore_direction;
               std::cout << "we have overshot the solution in the current direction only - let's try the other one" << std::endl;
             }
@@ -159,6 +181,20 @@ int main()
 
             s_pid_p = s_pid_p + change_in_parameter;
 
+            hit_threshold_on_last_iter = false;
+
+            if (s_pid_p > max_param_right)
+            {
+              s_pid_p = max_param_right;
+              hit_threshold_on_last_iter = true;
+            }
+            
+            if (s_pid_p < max_param_left)
+            {
+              s_pid_p = max_param_left;
+              hit_threshold_on_last_iter = true;
+            }
+
             std::cout << "p after: " << s_pid_p << std::endl;
           }
 
@@ -172,7 +208,7 @@ int main()
           last_cte = cte;
           cte_sum += cte;
 
-          total_error_for_last_cycle += cte;
+          total_error_for_last_cycle += std::fabs(cte);
 
           ++experiment_counter;
 
