@@ -64,14 +64,17 @@ int main() {
            *   Maybe use another PID controller to control the speed!
            */
 
-          const auto s_pid_p{0.1};
-          const auto s_pid_d{0.5};
+          const auto s_pid_p{0.05};
+          const auto s_pid_d{1.2};
+          const auto s_pid_i{0.01};
           
           static double last_cte{cte};
+          static double cte_sum{0.0};
 
-          steer_value = -s_pid_p * cte - s_pid_d * (cte - last_cte);
+          steer_value = -s_pid_p * cte - s_pid_d * (cte - last_cte) - s_pid_i * cte_sum;
 
           last_cte = cte;
+          cte_sum += cte;
 
           // DEBUG
           std::cout << "CTE: " << cte << " Steering Value: " << steer_value 
