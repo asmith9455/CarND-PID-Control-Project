@@ -32,13 +32,13 @@ string hasData(string s) {
 
 int main() {
   uWS::Hub h;
+  
 
-  PID pid;
   /**
    * TODO: Initialize the pid variable.
    */
 
-  h.onMessage([&pid](uWS::WebSocket<uWS::SERVER> ws, char *data, size_t length, 
+  h.onMessage([](uWS::WebSocket<uWS::SERVER> ws, char *data, size_t length, 
                      uWS::OpCode opCode) {
     // "42" at the start of the message means there's a websocket message event.
     // The 4 signifies a websocket message
@@ -64,7 +64,7 @@ int main() {
            * NOTE: Feel free to play around with the throttle and speed.
            *   Maybe use another PID controller to control the speed!
            */
-
+          
           const auto s_pid_p{0.1};
           const auto s_pid_d{0.5};
           const auto s_pid_i{0.0};
@@ -78,6 +78,11 @@ int main() {
 
           last_cte = cte;
           cte_sum += cte;
+
+          // static PID steering_pid{0.3, 0.5, 0.001};
+
+          // steering_pid.UpdateError(cte);
+          // double steer_value{steering_pid.TotalError()};
 
           double ref_speed = 10.0;
           double speed_error = ref_speed - speed;
