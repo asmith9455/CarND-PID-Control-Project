@@ -64,38 +64,17 @@ int main() {
            * NOTE: Feel free to play around with the throttle and speed.
            *   Maybe use another PID controller to control the speed!
            */
-          
-          const auto s_pid_p{0.3};
-          const auto s_pid_d{0.5};
-          const auto s_pid_i{0.001};
-          
-          static double last_cte{cte};
-          static double cte_sum{0.0};          
-
-          steer_value = -s_pid_p * cte - s_pid_d * (cte - last_cte) - s_pid_i * cte_sum;
-
-          last_cte = cte;
-          cte_sum += cte;
 
           static PID steering_pid{0.3, 0.001, 0.5};
+
+          static PID throttle_pid{-0.1, 0.0, -0.01};
 
           steer_value = steering_pid.CalcNewError(cte);
 
           double ref_speed = 10.0;
           double speed_error = ref_speed - speed;
-          static double last_speed_error{speed_error};
 
-          const auto t_pid_p{0.1};
-          const auto t_pid_d{0.01};
-          const auto t_pid_i{0.001};
-
-          throttle = t_pid_p * speed_error + t_pid_d * (speed_error - last_speed_error);
-
-          last_speed_error = speed_error;
-
-          // DEBUG
-          // std::cout << "CTE: " << cte << " Steering Value: " << steer_value 
-          //           << std::endl;
+          throttle = throttle_pid.CalcNewError(speed_error);
 
           json msgJson;
           msgJson["steering_angle"] = steer_value;
