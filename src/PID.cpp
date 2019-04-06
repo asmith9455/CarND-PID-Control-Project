@@ -5,9 +5,10 @@ Kp{Kp_}, Ki{Ki_}, Kd{Kd_} {}
 
 PID::~PID() {}
 
-void PID::UpdateError(double cte) {
+double PID::CalcNewError(double cte) {
 
   static double last_cte{cte};
+  static double cte_sum{0.0};
 
   p_error = -Kp * cte;
   d_error = -Kd * (cte - last_cte);
@@ -15,8 +16,6 @@ void PID::UpdateError(double cte) {
 
   last_cte = cte;
   cte_sum += cte;
-}
 
-double PID::TotalError() {
   return p_error + d_error + i_error;
 }

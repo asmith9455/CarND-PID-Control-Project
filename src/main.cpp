@@ -65,24 +65,21 @@ int main() {
            *   Maybe use another PID controller to control the speed!
            */
           
-          const auto s_pid_p{0.1};
+          const auto s_pid_p{0.3};
           const auto s_pid_d{0.5};
-          const auto s_pid_i{0.0};
+          const auto s_pid_i{0.001};
           
           static double last_cte{cte};
-          static double cte_sum{0.0};
-
-          throttle = 0.3;
+          static double cte_sum{0.0};          
 
           steer_value = -s_pid_p * cte - s_pid_d * (cte - last_cte) - s_pid_i * cte_sum;
 
           last_cte = cte;
           cte_sum += cte;
 
-          // static PID steering_pid{0.3, 0.5, 0.001};
+          static PID steering_pid{0.3, 0.001, 0.5};
 
-          // steering_pid.UpdateError(cte);
-          // double steer_value{steering_pid.TotalError()};
+          steer_value = steering_pid.CalcNewError(cte);
 
           double ref_speed = 10.0;
           double speed_error = ref_speed - speed;
