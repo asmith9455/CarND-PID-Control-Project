@@ -65,7 +65,7 @@ int main() {
            *   Maybe use another PID controller to control the speed!
            */
 
-          static PID steering_pid{0.1, 0.0, 1.0};
+          static PID steering_pid{0.1, 0.01, 4.0};
 
           static PID throttle_pid{-0.1, 0.0, 0.0};
 

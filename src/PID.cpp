@@ -6,6 +6,22 @@ Kp{Kp_}, Ki{Ki_}, Kd{Kd_}, cte_sum{0.0}, first_time{true} {}
 
 PID::~PID() {}
 
+double sgn(const double value)
+{
+  if (value > 0.0)
+  {
+    return 1.0;
+  }
+  else if (value < 0.0)
+  {
+    return -1.0;
+  }
+  else
+  {
+    return 0.0;
+  }
+}
+
 double PID::CalcNewError(double cte, const bool print_debug_info) {
 
   if (first_time)
@@ -15,6 +31,13 @@ double PID::CalcNewError(double cte, const bool print_debug_info) {
   }
 
   const double cte_diff{cte - last_cte};
+
+  double pseudo_cte = cte * cte;
+
+  if (cte < 0)
+  {
+    pseudo_cte = -pseudo_cte;
+  }
 
   p_error = -Kp * cte;
   d_error = -Kd * cte_diff;
@@ -33,6 +56,11 @@ double PID::CalcNewError(double cte, const bool print_debug_info) {
     ::std::cout << "i_error: " << i_error << ", ";
     ::std::cout << "d_error: " << d_error << std::endl;
   }
+
+  // if (sgn(cte) != sgn(last_cte))
+  // {
+  //   cte_sum = 0.0;
+  // }
 
   last_cte = cte;
   cte_sum += cte;
