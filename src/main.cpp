@@ -58,12 +58,10 @@ int main() {
           double speed = std::stod(j[1]["speed"].get<string>());
           double angle = std::stod(j[1]["steering_angle"].get<string>());
           double steer_value, throttle;
-          /**
-           * TODO: Calculate steering value here, remember the steering value is
-           *   [-1, 1].
-           * NOTE: Feel free to play around with the throttle and speed.
-           *   Maybe use another PID controller to control the speed!
-           */
+          
+          /// decription of effects:
+
+          /// I started tuning P first, leaving the others set to 0. It seems that leaving P too low will not control the car forcefully enough, and it will not make the tight turns. Increasing P too far causes large oscillations that do not make for a smooth drive. Therefore, I chose P of 0.1 for steering to keep it on the track with noticeable oscillations. In the turns, the car goes very close to the outside of the track. Next I tuned the I and D parameters. Increasing D can reduce the oscillations, but making D larger first causes a more sluggish response (causing problems in the turns), then causes huge oscaillations that usually cause the car to leave the track. The I parameter is also tricky, because the sum of the cross track error can become quite large over time. Therefore, this parameter seems to typically be much smaller than the others. It is important to increase I in order to keep the car in the center of the track. P and D fight each other when the car is returning to center. This is because if the CTE is positive (negative) and the change in CTE is negative (positive), as it is when the car is returning to center, the P and D effects can counteract each other (they act in opposite directions). To move the car back to center, one can decrease D or increase P - both of these options will increase the amplitude and frequency of oscillations about the path the car should follow. Therefore, the effect of gently acting on accumulated error can move the car back to center. Note that in doing so, oscillations can still be caused because the sum of error does not immediately drop to 0, however it seems to work well enough to get the car around the track.  
 
           static PID steering_pid{0.1, 0.01, 4.0};
 
