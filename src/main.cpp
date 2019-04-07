@@ -67,7 +67,7 @@ int main() {
 
           static PID steering_pid{0.1, 0.01, 4.0};
 
-          static PID throttle_pid{-0.1, 0.0, 0.0};
+          static PID throttle_pid{-0.1, -0.0001, 0.0};
 
           steer_value = steering_pid.CalcNewError(cte, true);
 

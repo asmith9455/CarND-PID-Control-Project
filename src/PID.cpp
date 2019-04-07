@@ -1,5 +1,6 @@
 #include "PID.h"
 #include <iostream>
+#include <cmath>
 
 PID::PID(double Kp_, double Ki_, double Kd_):
 Kp{Kp_}, Ki{Ki_}, Kd{Kd_}, cte_sum{0.0}, first_time{true} {}
@@ -20,6 +21,18 @@ double sgn(const double value)
   {
     return 0.0;
   }
+}
+
+double ModifyExp(const double x)
+{
+  using ::std::exp;
+  using ::std::fabs;
+  return exp(fabs(x)) * sgn(x);
+}
+
+double ModifyCub(const double x)
+{
+  return x*x*x;
 }
 
 double PID::CalcNewError(double cte, const bool print_debug_info) {
