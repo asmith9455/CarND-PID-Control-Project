@@ -17,7 +17,7 @@ class PID {
    * Update the PID error variables given cross track error.
    * @param cte The current cross track error
    */
-  double CalcNewError(double cte);
+  double CalcNewError(double cte, const bool print_debug_info = false);
 
  private:
   /**
@@ -33,6 +33,11 @@ class PID {
   double Kp;
   double Ki;
   double Kd;
+
+  double last_cte;
+  double cte_sum;
+
+  bool first_time;
 };
 
 #endif  // PID_H

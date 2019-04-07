@@ -65,13 +65,13 @@ int main() {
            *   Maybe use another PID controller to control the speed!
            */
 
-          static PID steering_pid{0.3, 0.001, 0.5};
+          static PID steering_pid{0.1, 0.0, 1.0};
 
-          static PID throttle_pid{-0.1, 0.0, -0.01};
+          static PID throttle_pid{-0.1, 0.0, 0.0};
 
-          steer_value = steering_pid.CalcNewError(cte);
+          steer_value = steering_pid.CalcNewError(cte, true);
 
-          double ref_speed = 10.0;
+          double ref_speed = 20.0;
           double speed_error = ref_speed - speed;
 
           throttle = throttle_pid.CalcNewError(speed_error);
@@ -80,7 +80,7 @@ int main() {
           msgJson["steering_angle"] = steer_value;
           msgJson["throttle"] = throttle;
           auto msg = "42[\"steer\"," + msgJson.dump() + "]";
-          std::cout << msg << std::endl;
+          std::cout << msg << std::endl << std::endl << std::endl;
           ws.send(msg.data(), msg.length(), uWS::OpCode::TEXT);
         }  // end "telemetry" if
       } else {
